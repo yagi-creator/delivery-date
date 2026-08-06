@@ -100,6 +100,9 @@ function parseNoukiWorkbook(wb, fileName) {
                 if (!pubRaw) return;
                 const pubName = String(pubRaw).replace(/\s+/g,' ').replace(/\n/g,'').trim();
                 if (!pubName || pubName.startsWith('★') || pubName.startsWith('《')) return;
+                
+                // Skip header rows (table headers like "出版社", "入力用", "直送出荷日", "宅送出荷日")
+                if (/^(出版社|入力用|直送出荷日|宅送出荷日|備考)$/.test(pubName)) return;
 
                 // H/I列のみを参照（index 7=H, 8=I）。J列(index9)は出版社名として扱う
                 const rawDirect = r[7], rawTakuso = r[8];
