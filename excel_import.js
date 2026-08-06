@@ -165,10 +165,15 @@ function excelCellToDate(val) {
     if (!val) return null;
     if (val instanceof Date) return val;
     if (typeof val === 'string') {
+        // YYYY-MM-DD
         const m = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
         if (m) return new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]));
+        // M/D/YYYY or MM/DD/YYYY
         const m2 = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
         if (m2) return new Date(parseInt(m2[3]), parseInt(m2[1])-1, parseInt(m2[2]));
+        // YYYY年M月D日 (Japanese format)
+        const m3 = val.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日/);
+        if (m3) return new Date(parseInt(m3[1]), parseInt(m3[2])-1, parseInt(m3[3]));
     }
     return null;
 }
