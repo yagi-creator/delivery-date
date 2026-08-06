@@ -294,6 +294,22 @@ table.holiday-table th { background:#eef2f7; }
           </select>
         </div>
         <small style="color:#6c757d;">選択したオフィスに応じて、各タブの配送地域の初期値が自動選択されます。</small>
+        <div style="margin-top:12px;border-top:1px dashed #e9ecef;padding-top:12px;">
+          <h4>🔁 共有設定</h4>
+          <div style="max-width:600px;">
+            <label>GitHub トークン（リポジトリに shared_state を保存する際に使用）</label>
+            <input type="password" id="sync_github_token" style="width:100%;margin:6px 0;padding:6px;" placeholder="ghp_...">
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn-small" id="btnPublishShared">Publish（共有状態をリポジトリに保存）</button>
+              <button class="btn-small" id="btnSyncShared">Sync（リポジトリから共有状態を取得）</button>
+              <select id="sync_target_repo" style="margin-left:8px;">
+                <option value="yagi-creator/delivery-date">yagi-creator/delivery-date（既定）</option>
+              </select>
+            </div>
+            <div style="font-size:12px;color:#6c757d;margin-top:6px;">注意: トークンは localStorage に保存されます。権限は repo (contents) が必要です。</div>
+            <div id="sync_status" style="font-size:13px;margin-top:8px;color:#2d3748;"></div>
+          </div>
+        </div>
       </div>
     </div>
 

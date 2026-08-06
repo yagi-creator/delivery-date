@@ -50,6 +50,98 @@ function updateCurrentDateTime() {
     el.textContent = `${month}月${day}日（${WDAYS[now.getDay()]}） ${hours}:${mins}`;
 }
 
+// ===== 共有状態の作成/公開/同期 =====
+function buildSharedState() {
+    // 共有したいのは: holidays, irregularList, manualOverrides, regionExceptions, excelShipData (出荷日)
+    const ship = {};
+    Object.entries(appState.excelShipData || {}).forEach(([date, pubs]) => {
+        ship[date] = {};
+        Object.entries(pubs).forEach(([k,v]) => {
+            // 共有時は source を除外
+            ship[date][k] = { direct: v.direct || null, takuso: v.takuso || null };
+        });
+    });
+    return {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        holidays: appState.holidays || [],
+        irregularList: appState.irregularList || [],
+        manualOverrides: appState.manualOverrides || {},
+        regionExceptions: appState.regionExceptions || [],
+        excelShipData: ship
+    };
+}
+
+async function publishSharedState(token, targetRepo) {
+    if (!token) throw new Error('GitHub token is required');
+    targetRepo = targetRepo || 'yagi-creator/delivery-date';
+    const [owner, repo] = targetRepo.split('/');
+    const path = 'shared/shared_state.json';
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+    const shared = buildSharedState();
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(shared, null, 2))));
+    // Try to get existing file to obtain sha
+    const getRes = await fetch(url, { headers: { Authorization: 'token ' + token, Accept: 'application/vnd.github.v3+json' }});
+    let sha = null;
+    if (getRes.ok) {
+        const j = await getRes.json();
+        sha = j.sha;
+    }
+    const body = { message: 'Publish shared_state.json (by app)', content, branch: 'main' };
+    if (sha) body.sha = sha;
+    const putRes = await fetch(url, { method: 'PUT', headers: { Authorization: 'token ' + token, Accept: 'application/vnd.github.v3+json', 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+    if (!putRes.ok) {
+        const text = await putRes.text();
+        throw new Error('GitHub API error: ' + putRes.status + ' ' + text);
+    }
+    const rj = await putRes.json();
+    // record that a published version exists
+    return rj;
+}
+
+async function syncSharedState(token, targetRepo) {
+    targetRepo = targetRepo || 'yagi-creator/delivery-date';
+    const [owner, repo] = targetRepo.split('/');
+    const path = 'shared/shared_state.json';
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+    const res = await fetch(url, { headers: token ? { Authorization: 'token ' + token, Accept: 'application/vnd.github.v3+json' } : { Accept: 'application/vnd.github.v3+json' } });
+    if (!res.ok) {
+        const t = await res.text();
+        throw new Error('Failed to fetch shared state: ' + res.status + ' ' + t);
+    }
+    const j = await res.json();
+    const content = atob(j.content.replace(/\n/g,''));
+    const shared = JSON.parse(decodeURIComponent(escape(content)));
+    mergeSharedState(shared);
+    saveState();
+    recalcAllTabs();
+    return shared;
+}
+
+function mergeSharedState(shared) {
+    if (!shared) return;
+    // Merge holidays: replace by shared (but keep any local ones not in shared?)
+    // Strategy: take shared as authoritative for holidays/irregulars/regionExceptions/manualOverrides/excelShipData
+    if (Array.isArray(shared.holidays)) appState.holidays = shared.holidays.slice();
+    if (Array.isArray(shared.irregularList)) appState.irregularList = shared.irregularList.slice();
+    if (shared.manualOverrides && typeof shared.manualOverrides === 'object') appState.manualOverrides = Object.assign({}, shared.manualOverrides);
+    if (Array.isArray(shared.regionExceptions)) appState.regionExceptions = shared.regionExceptions.slice();
+    if (shared.excelShipData && typeof shared.excelShipData === 'object') {
+        // Merge excelShipData by replacing entries for the dates present in shared
+        appState.excelShipData = appState.excelShipData || {};
+        Object.entries(shared.excelShipData).forEach(([date, pubs]) => {
+            appState.excelShipData[date] = appState.excelShipData[date] || {};
+            Object.entries(pubs).forEach(([k,v]) => {
+                appState.excelShipData[date][k] = { direct: v.direct || null, takuso: v.takuso || null, source: 'shared' };
+            });
+        });
+    }
+}
+
+// expose to global for settings.js
+window.publishSharedState = publishSharedState;
+window.syncSharedState = syncSharedState;
+
 // ===== 休業日判定（設定タブで編集された appState.holidays を使用） =====
 function getHolidayEntry(dateObj) {
     const s = toISODate(dateObj);
