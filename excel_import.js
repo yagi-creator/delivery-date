@@ -145,14 +145,14 @@ function parseNoukiWorkbook(wb, fileName) {
 
 function extractSections(rows) {
     const sections = { before14: [], after14: [], before16: [] };
-    let current = null;
+    let current = 'before16'; // Default to before16 (catch rows before any section marker)
     for (let i = 0; i < rows.length; i++) {
         const cellA = rows[i][0];
         if (typeof cellA === 'string') {
             if (cellA.includes('12時まで') || cellA.includes('14時まで')) { current = 'before14'; continue; }
             if (cellA.includes('12時以降') || cellA.includes('14時以降')) { current = 'after14'; continue; }
             if (cellA.includes('16時まで')) { current = 'before16'; continue; }
-            if (cellA.includes('《')) { current = null; continue; }
+            if (cellA.includes('《')) { current = 'before16'; continue; } // Reset to before16 after end marker
         }
         if (current && rows[i][0]) {
             sections[current].push(rows[i]);
