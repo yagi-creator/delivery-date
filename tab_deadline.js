@@ -46,7 +46,7 @@ function initDeadlineTab() {
             </div>
         </div>
 
-        <div class="tab-desc" style="background:#fff3cd;border-left-color:#ffc107;">💡 主要出版社は最初から「条件以上（注文する）」で一覧表示されています。注文しないメーカーは「なし」を押して減らし、主要以外を追加したい場合は下の「その他の出版社を表示」から選んでください。</div>
+        <div class="tab-desc" style="background:#fff3cd;border-left-color:#ffc107;">💡 主要出版社は最初から「条件未満（注文しない）」で一覧表示されています。注文する出版社は「条件以上」を押して一覧に加え、主要以外を追加したい場合は下の「その他の出版社を表示」から選んでください。</div>
 
         <button class="reset-btn" onclick="resetDeadlineStates()">🔄 主要出版社の初期状態に戻す</button>
 
@@ -67,8 +67,8 @@ function initDeadlineTab() {
     `;
 
     const allPub = buildAllPublishersMap();
-    // ===== 主要出版社は初期状態から「条件以上（注文する）」で一覧表示し、そこから減らす／追加する運用に変更 =====
-    generatePublisherButtons('dl_mainPublishers', MAIN_PUBLISHERS, allPub, 'dl', dl_publisherStates, null, 'over');
+    // ===== 主要出版社は初期状態から「条件未満（注文しない）」で一覧表示し、必要な出版社を選ぶ運用に変更 =====
+    generatePublisherButtons('dl_mainPublishers', MAIN_PUBLISHERS, allPub, 'dl', dl_publisherStates, null, 'under');
     generatePublisherButtons('dl_regionalPublishers', REGIONAL_PUBLISHERS, allPub, 'dl', dl_publisherStates, null, 'none');
     const others = Array.from(allPub.keys()).filter(p =>
         !MAIN_PUBLISHERS.some(m => p.includes(m.split(' / ')[0])) && !REGIONAL_PUBLISHERS.includes(p));
@@ -93,7 +93,7 @@ function initDeadlineTab() {
 
     applyOfficeDefaultRegion();
     updateRegionalVisibility('dl');
-    // ===== 主要出版社が初期状態で「条件以上」のため、表示直後から結果を自動計算 =====
+    // ===== 主要出版社が初期状態で「条件未満」のため、表示直後に初期選択を反映して計算 =====
     calcDeadline();
 }
 
@@ -101,7 +101,7 @@ function initDeadlineTab() {
 function resetDeadlineStates() {
     Object.keys(dl_publisherStates).forEach(p => {
         const isMain = MAIN_PUBLISHERS.some(m => p.includes(m.split(' / ')[0]));
-        dl_publisherStates[p] = isMain ? 'over' : 'none';
+        dl_publisherStates[p] = isMain ? 'under' : 'none';
     });
     document.querySelectorAll('#tab-deadline .publisher-item').forEach(item => {
         const nameEl = item.querySelector('.publisher-name');

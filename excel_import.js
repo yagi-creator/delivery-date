@@ -87,20 +87,39 @@ function parseNoukiWorkbook(wb, fileName) {
         ['before14','after14','before16'].forEach(secKey => {
             const rowsInSec = sections[secKey] || [];
             rowsInSec.forEach(r => {
-                const pubRaw = r[0];
+                // 優先: J列(index9) の出版社名、なければA列(index0)や末尾を使う
+                const pubRawCandidates = [r[9], r[0], r[r.length-1]];
+                const pubRaw = pubRawCandidates.find(x => x != null && String(x).trim() !== '');
                 if (!pubRaw) return;
                 const pubName = String(pubRaw).replace(/\s+/g,' ').replace(/\n/g,'').trim();
                 if (!pubName || pubName.startsWith('★') || pubName.startsWith('《')) return;
+
+                // H/I列のみを参照（index 7=H, 8=I）。J列(index9)は出版社名として扱う
                 const rawDirect = r[7], rawTakuso = r[8];
                 const directDate = excelCellToDate(rawDirect);
                 const takusoDate = excelCellToDate(rawTakuso);
-                // 「休業」等の文字列が入っていて日付として読めない場合を検知（お盆・年末年始などのイレギュラー表記）
-                if (rawDirect && !directDate) {
+
+                // 休業表記（例: "休業" を含む）や空欄は警告しない
+                if (rawDirect && !directDate && !/休/.test(String(rawDirect))) {
                     warnings.push(`「${sheetName}」シート「${pubName}」の直送出荷日欄が日付として読み取れませんでした（内容: "${rawDirect}"）`);
                 }
-                if (rawTakuso && !takusoDate) {
+                if (rawTakuso && !takusoDate && !/休/.test(String(rawTakuso))) {
                     warnings.push(`「${sheetName}」シート「${pubName}」の宅送出荷日欄が日付として読み取れませんでした（内容: "${rawTakuso}"）`);
                 }
+
+                // 直近1週間（シートの基準日(baseDate)〜+6日）だけ取り込む
+                const withinWeek = d => {
+                    if (!d) return false;
+                    const start = new Date(baseDate);
+                    start.setHours(0,0,0,0);
+                    const end = new Date(baseDate);
+                    end.setDate(end.getDate() + 6);
+                    end.setHours(23,59,59,999);
+                    return d >= start && d <= end;
+                };
+                if (!directDate && !takusoDate) return;
+                if (!(withinWeek(directDate) || withinWeek(takusoDate))) return;
+
                 publisherSet.add(pubName);
                 const slot = secKey === 'after14' ? '_after14' : '';
                 const key = pubName + slot;
