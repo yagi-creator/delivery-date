@@ -64,13 +64,20 @@ function parseNoukiWorkbook(wb, fileName) {
         }
         const ws = wb.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:null, blankrows:true });
-        // ヘッダ日付: 1行目のD列(index3) or H列(index7)
+        // ヘッダ日付: 1行目の複数列に分かれている可能性があるため柔軟に探索する
         const headerRow = rows[0] || [];
-        let baseDate = excelCellToDate(headerRow[3]) || excelCellToDate(headerRow[7]);
+        // 優先順: D(3), E(4), H(7), I(8), J(9)
+        let baseDate = excelCellToDate(headerRow[3]) || excelCellToDate(headerRow[4]) || excelCellToDate(headerRow[7]) || excelCellToDate(headerRow[8]) || excelCellToDate(headerRow[9]);
+        // 最終手段: ヘッダ行のどれかに日付っぽい文字列があれば採用
         if (!baseDate) {
-            const rawD = headerRow[3], rawH = headerRow[7];
-            const rawText = (rawD ?? rawH ?? '(空欄)');
-            warnings.push(`「${sheetName}」シート：ヘッダー日付が読み取れず取込をスキップしました（D1/H1セルの内容: "${rawText}"）。休業日で日付が入っていない・文字列になっている可能性があります。`);
+            for (let ci = 0; ci < headerRow.length; ci++) {
+                const cand = excelCellToDate(headerRow[ci]);
+                if (cand) { baseDate = cand; break; }
+            }
+        }
+        if (!baseDate) {
+            const rawSamples = [headerRow[3], headerRow[4], headerRow[7], headerRow[8], headerRow[9]].map(x => x || '').join(' | ');
+            warnings.push(`「${sheetName}」シート：ヘッダー日付が読み取れず取込をスキップしました（D1/E1/H1/I1/J1の内容: "${rawSamples}"）。休業日で日付が入っていない・文字列になっている可能性があります。`);
             return;
         }
 
@@ -142,8 +149,8 @@ function extractSections(rows) {
     for (let i = 0; i < rows.length; i++) {
         const cellA = rows[i][0];
         if (typeof cellA === 'string') {
-            if (cellA.includes('14時まで')) { current = 'before14'; continue; }
-            if (cellA.includes('14時以降')) { current = 'after14'; continue; }
+            if (cellA.includes('12時まで') || cellA.includes('14時まで')) { current = 'before14'; continue; }
+            if (cellA.includes('12時以降') || cellA.includes('14時以降')) { current = 'after14'; continue; }
             if (cellA.includes('16時まで')) { current = 'before16'; continue; }
             if (cellA.includes('《')) { current = null; continue; }
         }
