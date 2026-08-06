@@ -174,6 +174,13 @@ function excelCellToDate(val) {
         // YYYY年M月D日 (Japanese format)
         const m3 = val.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日/);
         if (m3) return new Date(parseInt(m3[1]), parseInt(m3[2])-1, parseInt(m3[3]));
+        // M/D(曜日) or M/D format in current year (e.g., "8/4(aaa)" or "8/4")
+        const m4 = val.match(/^(\d{1,2})\/(\d{1,2})/);
+        if (m4) {
+            // Use current year as default; could be improved by context
+            const now = new Date();
+            return new Date(now.getFullYear(), parseInt(m4[1])-1, parseInt(m4[2]));
+        }
     }
     return null;
 }
