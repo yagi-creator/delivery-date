@@ -11,6 +11,29 @@ function initSettingsBasic() {
         saveState();
         applyOfficeDefaultRegion();
     });
+
+    // Sync controls
+    const tokenInput = document.getElementById('sync_github_token');
+    const repoSelect = document.getElementById('sync_target_repo');
+    const statusEl = document.getElementById('sync_status');
+    tokenInput.value = localStorage.getItem('shared_sync_token') || '';
+    tokenInput.addEventListener('change', () => {
+        localStorage.setItem('shared_sync_token', tokenInput.value);
+    });
+    document.getElementById('btnPublishShared').addEventListener('click', async () => {
+        statusEl.textContent = 'Publishing...';
+        try {
+            await publishSharedState(tokenInput.value, repoSelect.value);
+            statusEl.textContent = 'Published successfully.';
+        } catch (e) { statusEl.textContent = 'Publish failed: ' + (e.message || e); }
+    });
+    document.getElementById('btnSyncShared').addEventListener('click', async () => {
+        statusEl.textContent = 'Syncing...';
+        try {
+            await syncSharedState(tokenInput.value, repoSelect.value);
+            statusEl.textContent = 'Synced successfully.';
+        } catch (e) { statusEl.textContent = 'Sync failed: ' + (e.message || e); }
+    });
 }
 function applyOfficeDefaultRegion() {
     const region = OFFICE_DEFAULT_REGION[appState.office];
