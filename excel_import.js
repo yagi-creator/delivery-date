@@ -107,10 +107,10 @@ function parseNoukiWorkbook(wb, fileName) {
                 const takusoDate = excelCellToDate(rawTakuso);
 
                 // 休業表記（例: "休業" を含む）や空欄は警告しない
-                if (rawDirect && !directDate && !/休/.test(String(rawDirect))) {
+                if (rawDirect && !directDate && !/休/.test(String(rawDirect)) && rawDirect !== '-') {
                     warnings.push(`「${sheetName}」シート「${pubName}」の直送出荷日欄が日付として読み取れませんでした（内容: "${rawDirect}"）`);
                 }
-                if (rawTakuso && !takusoDate && !/休/.test(String(rawTakuso))) {
+                if (rawTakuso && !takusoDate && !/休/.test(String(rawTakuso)) && rawTakuso !== '-') {
                     warnings.push(`「${sheetName}」シート「${pubName}」の宅送出荷日欄が日付として読み取れませんでした（内容: "${rawTakuso}"）`);
                 }
 
