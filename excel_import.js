@@ -95,21 +95,41 @@ function parseNoukiWorkbook(wb, fileName) {
             const rowsInSec = sections[secKey] || [];
             rowsInSec.forEach(r => {
                 // 優先: J列(index9) の出版社名、なければA列(index0)や末尾を使う
+                let pubIdx = -1;
                 const pubRawCandidates = [r[9], r[0], r[r.length-1]];
-                const pubRaw = pubRawCandidates.find(x => x != null && String(x).trim() !== '');
+                let pubRaw = null;
+                for (let ci = 0; ci < pubRawCandidates.length; ci++) {
+                    if (pubRawCandidates[ci] != null && String(pubRawCandidates[ci]).trim() !== '') {
+                        pubRaw = pubRawCandidates[ci];
+                        if (ci === 0) pubIdx = 9;  // J列
+                        else if (ci === 1) pubIdx = 0;  // A列
+                        else pubIdx = r.length - 1;  // 末尾
+                        break;
+                    }
+                }
                 if (!pubRaw) return;
                 const pubName = String(pubRaw).replace(/\s+/g,' ').replace(/\n/g,'').trim();
                 if (!pubName || pubName.startsWith('★') || pubName.startsWith('《')) return;
                 
-                // Skip header rows (table headers like "出版社", "入力用", "直送出荷日", "宅送出荷日")
+                // Skip header rows
                 if (/^(出版社|入力用|直送出荷日|宅送出荷日|備考)$/.test(pubName)) return;
 
-                // H/I列のみを参照（index 7=H, 8=I）。J列(index9)は出版社名として扱う
-                const rawDirect = r[7], rawTakuso = r[8];
+                // 日付列を柔軟に探索：出版社名の前の列や、H/I列を優先
+                let rawDirect = r[7], rawTakuso = r[8];
+                
+                // 出版社名が末尾付近にある場合、その前の列から日付を探す
+                if (!excelCellToDate(rawDirect) && !excelCellToDate(rawTakuso) && pubIdx >= 0) {
+                    if (pubIdx >= 2) {
+                        // 出版社名が C列以降なら、その前の2列を試す
+                        rawDirect = r[pubIdx - 2];
+                        rawTakuso = r[pubIdx - 1];
+                    }
+                }
+                
                 const directDate = excelCellToDate(rawDirect);
                 const takusoDate = excelCellToDate(rawTakuso);
 
-                // 休業表記（例: "休業" を含む）や空欄は警告しない
+                // 休業表記や空欄は警告しない
                 if (rawDirect && !directDate && !/休/.test(String(rawDirect)) && rawDirect !== '-') {
                     warnings.push(`「${sheetName}」シート「${pubName}」の直送出荷日欄が日付として読み取れませんでした（内容: "${rawDirect}"）`);
                 }
@@ -117,7 +137,7 @@ function parseNoukiWorkbook(wb, fileName) {
                     warnings.push(`「${sheetName}」シート「${pubName}」の宅送出荷日欄が日付として読み取れませんでした（内容: "${rawTakuso}"）`);
                 }
 
-                // 直近1週間（シートの基準日(baseDate)〜+6日）だけ取り込む
+                // 直近1週間だけ取り込む
                 const withinWeek = d => {
                     if (!d) return false;
                     const start = new Date(baseDate);
