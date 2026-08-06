@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>宅・直納期自動計算システム</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Meiryo','Hiragino Sans',sans-serif; background: #f5f7fa; padding: 10px; }
+.container { max-width: 1200px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); padding: 20px; }
+h1 { color: #2c3e50; text-align: center; margin-bottom: 15px; font-size: 22px; border-bottom: 3px solid #3498db; padding-bottom: 12px; }
+h3 { color: #2c3e50; margin-bottom: 10px; }
+
+/* ===== タブナビ ===== */
+.tab-nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; border-bottom: 2px solid #e9ecef; padding-bottom: 0; }
+.tab-nav-btn { flex: 1 1 auto; min-width: 110px; padding: 12px 8px; background: #ecf0f1; border: none; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 700; font-size: 13px; color: #566573; transition: all .2s; text-align: center; }
+.tab-nav-btn:hover { background: #dfe6e9; }
+.tab-nav-btn.active { background: #3498db; color: #fff; box-shadow: 0 -2px 8px rgba(52,152,219,.3); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn .25s ease-out; }
+@keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
+.datetime-display { background: #e8f6ff; padding: 10px; border-radius: 8px; margin-bottom: 16px; text-align: center; border: 1px solid #3498db; }
+.datetime-label { font-size: 12px; color: #666; }
+.datetime-value { font-size: 17px; font-weight: bold; color: #2c3e50; font-family:'Courier New',monospace; }
+
+.tab-desc { background: #eef7ff; border-left: 4px solid #3498db; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; color: #34495e; }
+
+.delivery-summary-banner { display:none; position:sticky; top:5px; z-index:900; background:linear-gradient(135deg,#2c3e50 0%,#3498db 100%); color:#fff; border-radius:12px; padding:14px 18px; margin-bottom:16px; box-shadow:0 4px 20px rgba(52,152,219,.4); }
+.banner-title { font-size:11px; opacity:.8; margin-bottom:6px; }
+.banner-dates { display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
+.banner-item { display:flex; flex-direction:column; align-items:center; }
+.banner-item-label { font-size:10px; opacity:.75; }
+.banner-item-date { font-size:20px; font-weight:800; }
+.banner-item-date.highlight { color:#ffd700; }
+.banner-divider { font-size:22px; opacity:.4; }
+
+.control-panel { background:#ecf0f1; padding:16px; border-radius:8px; margin-bottom:18px; }
+.form-group { margin-bottom:14px; }
+.form-row { display:flex; gap:12px; flex-wrap:wrap; }
+.form-row .form-group { flex:1; min-width:150px; }
+label { display:block; margin-bottom:6px; font-weight:600; color:#34495e; font-size:14px; }
+select, input[type=date], input[type=time], input[type=text], input[type=number] { width:100%; padding:9px; border:2px solid #bdc3c7; border-radius:6px; font-size:14px; background:#fff; }
+select:focus, input:focus { outline:none; border-color:#3498db; }
+
+.next-day-mode { background:#fff3cd; padding:12px; border-radius:6px; border-left:4px solid #ffc107; margin:12px 0; }
+.next-day-mode label { display:flex; align-items:center; margin:0; cursor:pointer; font-size:13px; }
+.next-day-mode input[type=checkbox] { width:auto; margin-right:8px; transform:scale(1.2); }
+
+.reset-btn { display:block; width:100%; padding:12px; margin-bottom:16px; background:linear-gradient(135deg,#e74c3c,#c0392b); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer; }
+.reset-btn:hover { opacity:.9; }
+
+.publisher-section { border:2px solid #e9ecef; border-radius:8px; padding:16px; margin:16px 0; background:#f8f9fa; }
+.publisher-section h4 { color:#2980b9; margin-bottom:12px; font-size:16px; }
+.publisher-item { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:10px 12px; margin:8px 0; background:#fff; border-radius:6px; border:1px solid #dee2e6; gap:8px; }
+.publisher-name { font-weight:600; color:#2c3e50; flex:1 1 140px; font-size:13px; }
+.publisher-condition { font-size:11px; color:#6c757d; flex:1 1 160px; }
+.button-group { display:flex; gap:6px; flex-wrap:wrap; }
+.btn { padding:7px 12px; border:2px solid #3498db; border-radius:5px; background:#fff; color:#3498db; font-weight:600; cursor:pointer; font-size:11px; white-space:nowrap; }
+.btn.active { background:#3498db; color:#fff; }
+.btn.none.active { background:#95a5a6; border-color:#95a5a6; }
+.btn.under.active { background:#e74c3c; border-color:#e74c3c; }
+.btn.over.active { background:#27ae60; border-color:#27ae60; }
+
+.toggle-others { text-align:center; margin:16px 0; }
+.toggle-others button { background:#6c757d; color:#fff; border:none; padding:10px 24px; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px; }
+
+.result-area { margin-top:20px; padding:16px; background:#e8f6ff; border:2px solid #3498db; border-radius:8px; }
+.result-item { background:#fff; padding:14px; margin:10px 0; border-radius:6px; border-left:4px solid #3498db; }
+.result-item.direct { border-left-color:#27ae60; }
+.result-item.takuso { border-left-color:#e74c3c; }
+.result-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px; }
+.badge { padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold; color:#fff; }
+.badge.direct { background:#27ae60; }
+.badge.takuso { background:#e74c3c; }
+.badge.excel { background:#8e44ad; }
+.badge.formula { background:#7f8c8d; }
+.delivery-date { color:#d35400; font-size:17px; font-weight:bold; margin-top:5px; }
+.source-tag { display:inline-block; font-size:10px; padding:2px 6px; border-radius:10px; margin-left:6px; color:#fff; }
+.source-tag.excel { background:#8e44ad; }
+.source-tag.formula { background:#95a5a6; }
+.source-tag.manual { background:#e67e22; }
+.source-tag.irregular { background:#f39c12; }
+
+.manual-override { display:inline-block; margin-top:8px; background:#fff3cd; padding:6px 10px; border-radius:6px; border:1px dashed #ffc107; }
+.manual-override label { font-size:11px; margin:0 6px 0 0; display:inline; color:#856404; }
+.manual-override input[type=date] { width:auto; padding:3px 5px; font-size:11px; }
+
+/* Settings */
+.settings-nav { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+.settings-nav button { padding:9px 16px; border:2px solid #3498db; background:#fff; color:#3498db; border-radius:20px; cursor:pointer; font-size:12px; font-weight:600; }
+.settings-nav button.active { background:#3498db; color:#fff; }
+.settings-panel { display:none; }
+.settings-panel.active { display:block; }
+.setting-box { border:1px solid #dee2e6; border-radius:8px; padding:16px; margin-bottom:16px; background:#fafbfc; }
+.setting-box h4 { color:#495057; margin-bottom:10px; font-size:15px; }
+table.holiday-table { width:100%; border-collapse:collapse; font-size:13px; }
+table.holiday-table th, table.holiday-table td { border:1px solid #dee2e6; padding:7px 9px; text-align:left; }
+table.holiday-table th { background:#eef2f7; }
+.tag { display:inline-block; padding:2px 7px; border-radius:10px; font-size:10px; font-weight:700; color:#fff; }
+.tag.holiday { background:#e74c3c; }
+.tag.business { background:#27ae60; }
+.btn-small { padding:5px 10px; font-size:11px; border-radius:5px; border:1px solid #dc3545; background:#fff; color:#dc3545; cursor:pointer; }
+.btn-small:hover { background:#dc3545; color:#fff; }
+.btn-add { background:linear-gradient(135deg,#28a745,#20c997); color:#fff; border:none; padding:10px 20px; border-radius:6px; font-weight:700; cursor:pointer; font-size:13px; }
+.import-drop { border:3px dashed #8e44ad; border-radius:10px; padding:30px; text-align:center; background:#f8f4ff; cursor:pointer; }
+.import-drop:hover { background:#f0e6ff; }
+.import-list-item { display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #dee2e6; border-radius:8px; padding:12px; margin-bottom:8px; flex-wrap:wrap; gap:8px; }
+
+.irregular-toggle-btn { background:linear-gradient(135deg,#ffc107,#ffb300); color:#212529; border:none; padding:11px 20px; border-radius:8px; cursor:pointer; font-weight:700; font-size:13px; width:100%; margin-bottom:12px; }
+.irregular-panel { background:#fff8e1; border:2px solid #ffc107; border-radius:12px; padding:20px; margin:16px 0; }
+.irregular-form { background:#fff; border:1px solid #fde68a; border-radius:10px; padding:16px; margin-bottom:16px; }
+.form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:12px; }
+.form-field { display:flex; flex-direction:column; gap:5px; }
+.form-field label { font-size:12px; font-weight:600; color:#495057; margin:0; }
+.change-type-selector { display:flex; gap:10px; margin:12px 0; flex-wrap:wrap; }
+.change-type-btn { padding:8px 16px; border:2px solid #dee2e6; border-radius:20px; background:#fff; cursor:pointer; font-size:12px; font-weight:600; color:#6c757d; }
+.change-type-btn.active { border-color:#ffc107; background:#fff3cd; color:#856404; }
+.change-detail-area { background:#f8f9fa; border-radius:8px; padding:12px; margin:12px 0; min-height:60px; border:1px dashed #dee2e6; }
+.btn-register { background:linear-gradient(135deg,#28a745,#20c997); color:#fff; border:none; padding:11px 20px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; width:100%; }
+.irregular-item { display:flex; align-items:flex-start; justify-content:space-between; background:#fff; border:1px solid #dee2e6; border-radius:10px; padding:12px; margin-bottom:8px; gap:12px; flex-wrap:wrap; }
+.irregular-item.active-now { border-color:#28a745; background:#eafaf0; }
+.irregular-item.expired { opacity:.55; }
+.irregular-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; margin-right:6px; color:#fff; }
+.irregular-badge.active { background:#28a745; }
+.irregular-badge.waiting { background:#17a2b8; }
+.irregular-badge.expired-tag { background:#6c757d; }
+.no-data { text-align:center; color:#adb5bd; font-size:13px; padding:18px; font-style:italic; }
+
+.deadline-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:14px; }
+.deadline-table th,.deadline-table td { border:1px solid #dee2e6; padding:9px; text-align:center; }
+.deadline-table th { background:#2c3e50; color:#fff; }
+.deadline-table tr.earliest { background:#fff3cd; font-weight:700; }
+.deadline-hero { background:linear-gradient(135deg,#e74c3c,#c0392b); color:#fff; border-radius:12px; padding:20px; text-align:center; margin:16px 0; }
+.deadline-hero .label { font-size:13px; opacity:.85; }
+.deadline-hero .value { font-size:28px; font-weight:800; margin-top:6px; }
+
+@media (max-width:700px) {
+  body { padding:0; font-size:14px; }
+  .container { padding:8px; border-radius:0; box-shadow:none; }
+  h1 { font-size:15px; padding-bottom:8px; margin-bottom:8px; }
+  h3 { font-size:14px; margin-bottom:6px; }
+
+  /* タブナビ：折り返さず横スクロールに */
+  .tab-nav { flex-wrap:nowrap; overflow-x:auto; gap:4px; margin-bottom:10px; -webkit-overflow-scrolling:touch; }
+  .tab-nav-btn { flex:0 0 auto; min-width:auto; font-size:11px; padding:8px 10px; border-radius:6px 6px 0 0; white-space:nowrap; }
+
+  .tab-desc { font-size:11px; padding:7px 9px; margin-bottom:10px; line-height:1.4; }
+
+  .datetime-display { padding:6px; margin-bottom:10px; }
+  .datetime-label { font-size:10px; }
+  .datetime-value { font-size:14px; }
+
+  /* 納期サマリーバナー */
+  .delivery-summary-banner { padding:8px 10px; margin-bottom:10px; border-radius:8px; }
+  .banner-title { font-size:9px; margin-bottom:4px; }
+  .banner-dates { gap:8px; }
+  .banner-item-label { font-size:9px; }
+  .banner-item-date { font-size:14px; }
+  .banner-divider { font-size:16px; }
+
+  /* コントロールパネル・フォーム */
+  .control-panel { padding:10px; margin-bottom:10px; border-radius:6px; }
+  .form-group { margin-bottom:8px; }
+  .form-row { flex-direction:column; gap:8px; }
+  .form-row .form-group { min-width:0; }
+  label { font-size:12px; margin-bottom:3px; }
+  select, input[type=date], input[type=time], input[type=text], input[type=number] { padding:7px; font-size:13px; }
+  .next-day-mode { padding:8px; margin:8px 0; }
+  .next-day-mode label { font-size:12px; }
+
+  .reset-btn { padding:9px; font-size:12px; margin-bottom:10px; }
+
+  /* 出版社ボタン群：横並びを維持しつつコンパクト化（縦積みにしない） */
+  .publisher-section { padding:8px; margin:10px 0; border-radius:6px; }
+  .publisher-section h4 { font-size:13px; margin-bottom:8px; }
+  .publisher-item { flex-direction:row; align-items:center; padding:6px 8px; margin:5px 0; gap:6px; flex-wrap:wrap; }
+  .publisher-name { font-size:12px; flex:1 1 100%; order:1; }
+  .publisher-condition { font-size:10px; flex:1 1 100%; order:2; margin-bottom:2px; }
+  .button-group { order:3; flex:1 1 100%; justify-content:stretch; gap:4px; width:100%; }
+  .btn { flex:1 1 0; min-width:0; padding:6px 1px; font-size:10px; white-space:nowrap; text-align:center; overflow:hidden; text-overflow:ellipsis; }
+
+  .toggle-others { margin:10px 0; }
+  .toggle-others button { padding:8px 16px; font-size:12px; }
+
+  /* 結果表示 */
+  .result-area { padding:10px; margin-top:12px; border-radius:6px; }
+  .result-item { padding:10px; margin:7px 0; }
+  .result-header { gap:4px; }
+  .result-header strong { font-size:13px; }
+  .badge { font-size:10px; padding:2px 6px; }
+  .source-tag { font-size:9px; padding:1px 5px; }
+  .delivery-date { font-size:15px; }
+  .manual-override { display:block; margin-top:6px; }
+
+  /* 設定タブ */
+  .settings-nav { gap:4px; overflow-x:auto; flex-wrap:nowrap; -webkit-overflow-scrolling:touch; margin-bottom:10px; }
+  .settings-nav button { flex:0 0 auto; padding:7px 12px; font-size:11px; white-space:nowrap; }
+  .setting-box { padding:10px; margin-bottom:10px; }
+  .setting-box h4 { font-size:13px; }
+  .form-grid { grid-template-columns:1fr; gap:8px; }
+
+  table.holiday-table { font-size:10.5px; }
+  table.holiday-table th, table.holiday-table td { padding:5px 4px; }
+  .import-drop { padding:18px 10px; font-size:12px; }
+  .import-list-item { padding:9px; font-size:12px; }
+
+  .irregular-panel { padding:10px; margin:10px 0; }
+  .irregular-form { padding:10px; margin-bottom:10px; }
+  .change-type-selector { gap:6px; }
+  .change-type-btn { padding:6px 10px; font-size:11px; }
+  .irregular-item { padding:9px; gap:8px; }
+
+  .deadline-table { font-size:11px; margin-top:10px; }
+  .deadline-table th,.deadline-table td { padding:6px 4px; }
+  .deadline-hero { padding:14px; margin:10px 0; }
+  .deadline-hero .value { font-size:20px; }
+}
+
+@media (max-width:400px) {
+  .btn { font-size:9.5px; padding:6px 2px; }
+  .publisher-name { font-size:11px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📦 宅・直納期自動計算システム</h1>
+
+  <div id="deliverySummaryBanner" class="delivery-summary-banner">
+    <div class="banner-title">📋 最短納品日サマリー</div>
+    <div class="banner-dates" id="bannerDates"></div>
+  </div>
+
+  <div class="datetime-display">
+    <div class="datetime-label">現在の日時</div>
+    <div id="currentDateTime" class="datetime-value">時刻を取得中...</div>
+  </div>
+
+  <div class="tab-nav">
+    <button class="tab-nav-btn active" data-tab="tab-standard">① 標準納期確認</button>
+    <button class="tab-nav-btn" data-tab="tab-detail">② 詳細納期確認</button>
+    <button class="tab-nav-btn" data-tab="tab-deadline">③ 注文締切逆算</button>
+    <button class="tab-nav-btn" data-tab="tab-past">④ 過去納期確認</button>
+    <button class="tab-nav-btn" data-tab="tab-settings">⚙️ 設定</button>
+  </div>
+
+  <!-- ============ タブ①標準納期確認 ============ -->
+  <div class="tab-panel active" id="tab-standard">
+    <div class="tab-desc">今すぐ注文した場合の納期を、<strong>配送地域だけ</strong>選んでスピーディに確認できます。</div>
+    <div id="std_root"></div>
+  </div>
+
+  <!-- ============ タブ②詳細納期確認 ============ -->
+  <div class="tab-panel" id="tab-detail">
+    <div class="tab-desc">注文日時・都道府県（市町村）まで指定して、より詳細な納期を確認できます。</div>
+    <div id="det_root"></div>
+  </div>
+
+  <!-- ============ タブ③注文締切逆算 ============ -->
+  <div class="tab-panel" id="tab-deadline">
+    <div class="tab-desc">「いつまでに届けたいか」を指定すると、出版社ごとの<strong>注文締切日時</strong>と、全て間に合わせるための<strong>最速締切日</strong>を計算します。</div>
+    <div id="dl_root"></div>
+  </div>
+
+  <!-- ============ タブ④過去納期確認 ============ -->
+  <div class="tab-panel" id="tab-past">
+    <div class="tab-desc">過去（または任意）の注文日時を指定して、その時点の納期を確認できます。Excel取込データがある期間は取込データを優先します。</div>
+    <div id="past_root"></div>
+  </div>
+
+  <!-- ============ タブ⑤設定 ============ -->
+  <div class="tab-panel" id="tab-settings">
+    <div class="settings-nav">
+      <button class="active" data-settings="set-basic">🏢 基本設定</button>
+      <button data-settings="set-holiday">📅 休業日設定</button>
+      <button data-settings="set-irregular">⚠️ イレギュラー管理</button>
+      <button data-settings="set-excel">📥 Excel取込</button>
+      <button data-settings="set-exception">🗺️ 地域特殊ルール</button>
+    </div>
+
+    <div class="settings-panel active" id="set-basic">
+      <div class="setting-box">
+        <h4>🏢 オフィス設定</h4>
+        <div class="form-group" style="max-width:400px;">
+          <label for="officeSelect">所属オフィス</label>
+          <select id="officeSelect">
+            <option value="">-- 未設定 --</option>
+            <option value="tokyo">東京</option>
+            <option value="kansai">関西</option>
+            <option value="chushikoku">中四国</option>
+            <option value="kyushu">九州</option>
+            <option value="national">受発注（全国）</option>
+          </select>
+        </div>
+        <small style="color:#6c757d;">選択したオフィスに応じて、各タブの配送地域の初期値が自動選択されます。</small>
+      </div>
+    </div>
+
+    <div class="settings-panel" id="set-holiday">
+      <div class="setting-box">
+        <h4>📅 休業日・特別営業日の登録</h4>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>種別</label>
+            <select id="hol_type">
+              <option value="holiday">休業日（この日は営業日にしない）</option>
+              <option value="business">特別営業日（土日祝でも営業する）</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>日付</label>
+            <input type="date" id="hol_date">
+          </div>
+          <div class="form-field">
+            <label>名称・メモ</label>
+            <input type="text" id="hol_name" placeholder="例：夏期休業、年末年始休業など">
+          </div>
+        </div>
+        <button class="btn-add" onclick="addHoliday()">＋ 登録する</button>
+      </div>
+      <div class="setting-box">
+        <h4>📋 登録済み一覧（<span id="hol_count">0</span>件）</h4>
+        <div style="max-height:400px;overflow-y:auto;">
+          <table class="holiday-table" id="hol_table">
+            <thead><tr><th>日付</th><th>曜日</th><th>種別</th><th>名称</th><th>操作</th></tr></thead>
+            <tbody id="hol_tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-panel" id="set-irregular">
+      <button class="irregular-toggle-btn" onclick="toggleIrregularPanel()">⚠️ イレギュラー登録・管理を開く/閉じる</button>
+      <div id="irregularPanel" class="irregular-panel" style="display:none;">
+        <div class="irregular-form">
+          <div class="form-grid">
+            <div class="form-field"><label>📅 適用開始日</label><input type="date" id="irr_startDate"></div>
+            <div class="form-field"><label>📅 適用終了日</label><input type="date" id="irr_endDate"></div>
+            <div class="form-field">
+              <label>🏢 対象出版社</label>
+              <select id="irr_publisher">
+                <option value="">-- 出版社を選択 --</option>
+                <option value="ALL_PUBLISHERS">🌐 全出版社（一括設定）</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:600;color:#495057;display:block;margin-bottom:8px;">🔧 変更内容を選択</label>
+            <div class="change-type-selector">
+              <button class="change-type-btn active" onclick="selectChangeType('shipDelay',this)">📦 出荷日遅延（+○日）</button>
+              <button class="change-type-btn" onclick="selectChangeType('threshold',this)">📊 直送条件冊数変更</button>
+              <button class="change-type-btn" onclick="selectChangeType('fixedDate',this)">📅 出荷日固定</button>
+              <button class="change-type-btn" onclick="selectChangeType('leadTimeChange',this)">⏱️ 基本リードタイム変更</button>
+            </div>
+          </div>
+          <div class="change-detail-area" id="changeDetailArea"></div>
+          <div class="form-field"><label>📝 メモ（任意）</label><input type="text" id="irr_memo" placeholder="例：GW休業のため"></div>
+          <button class="btn-register" onclick="registerIrregular()">✅ イレギュラーを登録する</button>
+        </div>
+        <div>
+          <h4 style="margin-bottom:10px;border-bottom:2px solid #ffc107;padding-bottom:6px;">📋 登録済みイレギュラー一覧</h4>
+          <div id="irregularListContainer"><div class="no-data">登録されたイレギュラーはありません</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-panel" id="set-excel">
+      <div class="setting-box">
+        <h4>📥 出荷日一覧Excelの取込</h4>
+        <p style="font-size:13px;color:#6c757d;margin-bottom:12px;">毎週配布される「宅・直納期早見表」Excelファイルをアップロードすると、該当週の出荷日が自動的に反映されます（取込データが最優先で使用され、それ以外の期間は基本ルールで計算します）。</p>
+        <div class="import-drop" onclick="document.getElementById('excelFileInput').click()">
+          📂 クリックしてExcelファイルを選択（.xlsx）<br>
+          <small style="color:#8e44ad;">複数ファイルを一度に選択できます</small>
+        </div>
+        <input type="file" id="excelFileInput" accept=".xlsx,.xls" multiple style="display:none;" onchange="handleExcelImport(event)">
+        <div id="importStatus" style="margin-top:10px;font-size:13px;"></div>
+      </div>
+      <div class="setting-box">
+        <h4>📋 取込済みファイル一覧</h4>
+        <div id="importListContainer"><div class="no-data">まだ取り込んでいません</div></div>
+      </div>
+    </div>
+
+    <div class="settings-panel" id="set-exception">
+      <div class="setting-box">
+        <h4>🗺️ 地域特殊ルール（都道府県・市町村ごとの納期加算）</h4>
+        <p style="font-size:13px;color:#6c757d;margin-bottom:12px;">離島など、通常の地域区分より納期が余分にかかる場所を登録できます。「詳細納期確認」「過去納期確認」タブで都道府県・市町村を指定した際に反映されます。</p>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>都道府県</label>
+            <select id="exc_pref"></select>
+          </div>
+          <div class="form-field"><label>市町村（空欄で県全体）</label><input type="text" id="exc_city" placeholder="例：八丈町"></div>
+          <div class="form-field"><label>追加日数</label><input type="number" id="exc_days" min="1" max="10" value="1"></div>
+          <div class="form-field"><label>メモ</label><input type="text" id="exc_note" placeholder="例：離島のため+1日"></div>
+        </div>
+        <button class="btn-add" onclick="addException()">＋ 登録する</button>
+      </div>
+      <div class="setting-box">
+        <h4>📋 登録済み一覧</h4>
+        <div id="exceptionListContainer"><div class="no-data">登録されていません</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="settings.js"></script>
+<script src="irregular.js"></script>
+<script src="excel_import.js"></script>
+<script src="calc_core.js"></script>
+<script src="ui_helpers.js"></script>
+<script src="tab_standard.js"></script>
+<script src="tab_detail.js"></script>
+<script src="tab_deadline.js"></script>
+<script src="tab_past.js"></script>
+</body>
+</html>
