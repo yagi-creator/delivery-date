@@ -137,18 +137,18 @@ function parseNoukiWorkbook(wb, fileName) {
                     warnings.push(`「${sheetName}」シート「${pubName}」の宅送出荷日欄が日付として読み取れませんでした（内容: "${rawTakuso}"）`);
                 }
 
-                // 直近1週間だけ取り込む
-                const withinWeek = d => {
+                // 取り込む期間を拡大: シートの基準日(baseDate)〜+30日まで取り込む
+                const withinWindow = d => {
                     if (!d) return false;
                     const start = new Date(baseDate);
                     start.setHours(0,0,0,0);
                     const end = new Date(baseDate);
-                    end.setDate(end.getDate() + 6);
+                    end.setDate(end.getDate() + 30); // 30日範囲
                     end.setHours(23,59,59,999);
                     return d >= start && d <= end;
                 };
                 if (!directDate && !takusoDate) return;
-                if (!(withinWeek(directDate) || withinWeek(takusoDate))) return;
+                if (!(withinWindow(directDate) || withinWindow(takusoDate))) return;
 
                 publisherSet.add(pubName);
                 const slot = secKey === 'after14' ? '_after14' : '';
