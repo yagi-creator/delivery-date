@@ -258,20 +258,56 @@ function lookupExcelShipDate(pubName, orderDate, hour) {
     const dayData = appState.excelShipData[dateKey];
     if (!dayData) return null;
 
+    // 正規化ヘルパー: 空白や注釈、括弧内の注記、全角空白を取り除いて比較用に揃える
+    const normalize = s => {
+        if (!s && s !== 0) return '';
+        let t = String(s);
+        // remove annotations like ※XXX
+        t = t.replace(/※.*$/g, '');
+        // remove parentheses and their contents (both () and （）)
+        t = t.replace(/\(.+?\)|（.+?）/g, '');
+        // replace full-width space with normal, collapse whitespace
+        t = t.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
+        // remove common separators and punctuation
+        t = t.replace(/["'\[\]・\/\\,，。\.]/g, '');
+        return t;
+    };
+
+    const normPub = normalize(pubName).split(' / ')[0];
+
+    // Build normalized key map for dayData
+    const keyMap = Object.keys(dayData).reduce((acc, k) => {
+        acc[k] = normalize(k).replace('_after14','');
+        return acc;
+    }, {});
+
+    // If EN-group, prefer _after14 when hour >= 14
     const cond = getCondition(pubName);
     const isENGroupPub = cond.isENGroup;
-    let key = pubName;
 
-    if (isENGroupPub) {
-        // EN系は14時締切。14時以降なら after14 データを見る
-        if (hour >= 14 && dayData[pubName + '_after14']) {
-            key = pubName + '_after14';
+    // try candidates in order
+    const candidates = [];
+    if (isENGroupPub && hour >= 14) candidates.push(pubName + '_after14');
+    candidates.push(pubName);
+
+    // exact candidate match
+    for (const c of candidates) {
+        if (dayData[c]) return dayData[c];
+    }
+
+    // normalized exact match
+    for (const k of Object.keys(keyMap)) {
+        if (keyMap[k] === normalize(pubName).replace('_after14','')) return dayData[k];
+    }
+
+    // partial/inclusive matching (normalized)
+    const normCandidates = [normPub, normalize(pubName)];
+    for (const k of Object.keys(keyMap)) {
+        for (const nc of normCandidates) {
+            if (!nc) continue;
+            if (keyMap[k].includes(nc) || nc.includes(keyMap[k])) return dayData[k];
         }
     }
-    // 直接一致 → 部分一致
-    if (dayData[key]) return dayData[key];
-    if (dayData[pubName]) return dayData[pubName];
-    const foundKey = Object.keys(dayData).find(k => k.replace('_after14','').includes(pubName.split(' / ')[0]) || pubName.includes(k.replace('_after14','').split(' / ')[0]));
-    if (foundKey) return dayData[foundKey];
+
     return null;
 }
