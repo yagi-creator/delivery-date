@@ -152,6 +152,12 @@ function calcCore(params) {
         } else {
             o.shipDateObj = addBusinessDays(effDate, baseLeadTime + (o.extraDelayDays || 0));
         }
+
+        // 出荷日が休業日（祝日・土日）に当たる場合は翌営業日に繰り下げる
+        if (o.shipDateObj instanceof Date && !isBusinessDay(o.shipDateObj)) {
+            o.shipDateObj = getNextBusinessDay(o.shipDateObj);
+            o.reason += ' [出荷日が休業日のため翌営業日に繰り下げ]';
+        }
     });
 
     // ===== 着日計算 =====
