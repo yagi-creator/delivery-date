@@ -307,6 +307,17 @@ table.holiday-table th { background:#eef2f7; }
               </select>
             </div>
             <div style="font-size:12px;color:#6c757d;margin-top:6px;">注意: トークンは localStorage に保存されます。権限は repo (contents) が必要です。</div>
+            <div style="margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+                <input type="checkbox" id="auto_sync_enable"> 自動でSync（リポジトリから定期取得）
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+                <input type="checkbox" id="auto_publish_enable"> 自動でPublish（ローカル変更をリポジトリに反映）
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+                同期間隔（分）<input type="number" id="auto_sync_interval" value="5" min="1" style="width:70px;padding:6px;margin-left:6px;">
+              </label>
+            </div>
             <div id="sync_status" style="font-size:13px;margin-top:8px;color:#2d3748;"></div>
           </div>
         </div>

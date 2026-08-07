@@ -142,6 +142,84 @@ function mergeSharedState(shared) {
 window.publishSharedState = publishSharedState;
 window.syncSharedState = syncSharedState;
 
+// ===== 自動同期・自動公開（簡易実装: クライアント側ポーリング + ローカル変更でデバウンス公開） =====
+let __autoSyncTimer = null;
+let __pendingPublishTimer = null;
+let __lastPublishedAt = null;
+
+async function doSyncNow() {
+    const token = localStorage.getItem('shared_sync_token') || '';
+    const repo = document.getElementById('sync_target_repo') ? document.getElementById('sync_target_repo').value : 'yagi-creator/delivery-date';
+    try {
+        await syncSharedState(token, repo);
+        const s = document.getElementById('sync_status'); if (s) s.textContent = 'Auto-sync: success ' + new Date().toLocaleTimeString();
+    } catch (e) {
+        const s = document.getElementById('sync_status'); if (s) s.textContent = 'Auto-sync error: ' + (e.message || e);
+    }
+}
+
+async function doPublishNow() {
+    const token = localStorage.getItem('shared_sync_token') || '';
+    const repo = document.getElementById('sync_target_repo') ? document.getElementById('sync_target_repo').value : 'yagi-creator/delivery-date';
+    if (!token) {
+        const s = document.getElementById('sync_status'); if (s) s.textContent = 'Auto-publish skipped: no token';
+        return;
+    }
+    try {
+        await publishSharedState(token, repo);
+        __lastPublishedAt = new Date();
+        const s = document.getElementById('sync_status'); if (s) s.textContent = 'Auto-publish: success ' + __lastPublishedAt.toLocaleTimeString();
+    } catch (e) {
+        const s = document.getElementById('sync_status'); if (s) s.textContent = 'Auto-publish error: ' + (e.message || e);
+    }
+}
+
+function schedulePublishDebounced(delayMs = 3000) {
+    // called when local state changes (saveState)
+    if (localStorage.getItem('auto_publish_enable') !== '1') return;
+    if (__pendingPublishTimer) clearTimeout(__pendingPublishTimer);
+    __pendingPublishTimer = setTimeout(() => {
+        doPublishNow();
+        __pendingPublishTimer = null;
+    }, delayMs);
+}
+
+function startAutoSyncPublish() {
+    stopAutoSyncPublish();
+    const enabledSync = localStorage.getItem('auto_sync_enable') === '1';
+    const enabledPub = localStorage.getItem('auto_publish_enable') === '1';
+    const intervalMin = parseInt(localStorage.getItem('auto_sync_interval') || '5', 10) || 5;
+    if (enabledSync) {
+        // immediate run then schedule
+        doSyncNow();
+        __autoSyncTimer = setInterval(() => {
+            doSyncNow();
+        }, Math.max(1, intervalMin) * 60 * 1000);
+    }
+    // For publish: listen to saveState by wrapping it — simple approach: monkey-patch saveState to trigger schedulePublishDebounced
+    if (enabledPub && !window.__saveStatePatched) {
+        const origSave = saveState;
+        window.saveState = function() {
+            origSave();
+            // schedule publish
+            schedulePublishDebounced(2000);
+        };
+        window.__saveStatePatched = true;
+    }
+}
+
+function stopAutoSyncPublish() {
+    if (__autoSyncTimer) { clearInterval(__autoSyncTimer); __autoSyncTimer = null; }
+    if (__pendingPublishTimer) { clearTimeout(__pendingPublishTimer); __pendingPublishTimer = null; }
+}
+
+window.startAutoSyncPublish = startAutoSyncPublish;
+window.stopAutoSyncPublish = stopAutoSyncPublish;
+// 自動開始: ページ読み込み時の設定に従う
+if (localStorage.getItem('auto_sync_enable') === '1' || localStorage.getItem('auto_publish_enable') === '1') {
+    setTimeout(() => startAutoSyncPublish(), 1000);
+}
+
 // ===== 休業日判定（設定タブで編集された appState.holidays を使用） =====
 function getHolidayEntry(dateObj) {
     const s = toISODate(dateObj);
