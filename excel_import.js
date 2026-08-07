@@ -270,6 +270,9 @@ function lookupExcelShipDate(pubName, orderDate, hour) {
         t = t.replace(/\u3000/g, ' ').replace(/\s+/g, ' ').trim();
         // remove common separators and punctuation
         t = t.replace(/["'\[\]・\/\\,，。\.]/g, '');
+        // remove common corporate/publisher suffixes to handle 表記ゆれ (e.g., 好学 vs 好学出版)
+        t = t.replace(/(株式会社|（株）|\(株\)|㈱|出版|社|書店|販売|販売部|事業部|部|市販商品)$/g, '');
+        t = t.trim();
         return t;
     };
 
